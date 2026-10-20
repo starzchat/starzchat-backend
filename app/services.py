@@ -4,6 +4,11 @@ from .extensions import db
 from .models import Conversation, Member, Message, message_expiry
 
 
+def normalize_id(value):
+    """Student IDs are compared case-insensitively and stored upper-case."""
+    return (value or "").strip().upper()
+
+
 class ChatError(Exception):
     def __init__(self, message, status=400):
         super().__init__(message)

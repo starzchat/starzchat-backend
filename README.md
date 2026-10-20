@@ -4,7 +4,9 @@ A text-only chat app built with Python and Flask. Users can send direct messages
 
 ## Features
 
-- Username + password sign-up and login (JWT)
+- Students sign up with their **student ID**, a **username** they choose and their own password; they log in with username + password (JWT)
+- Optional roster check, so only IDs on the university's list can register
+- Add another student by their ID to start chatting; create groups by listing student IDs
 - One-to-one chats and group chats (admin and member roles)
 - Real-time delivery with Flask-SocketIO
 - Self-deleting messages (default 24 hours, configurable per group)
@@ -40,19 +42,34 @@ All routes except register/login need the header `Authorization: Bearer <token>`
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| POST | `/api/auth/register` | Create account `{username, password}` |
-| POST | `/api/auth/login` | Log in, returns a token |
+| POST | `/api/auth/register` | Create account `{student_id, username, password, display_name?}` |
+| POST | `/api/auth/login` | Log in `{username, password}`, returns a token |
 | GET | `/api/me` | Current user |
 | GET | `/api/chats` | List my chats |
-| POST | `/api/chats/direct` | Start or reuse a 1:1 chat `{username}` |
-| POST | `/api/chats/group` | Create group `{name, members: [...], ttl_seconds?}` |
-| POST | `/api/chats/<id>/members` | Add member (admin only) `{username}` |
+| POST | `/api/chats/direct` | Start or reuse a 1:1 chat `{student_id}` |
+| POST | `/api/chats/group` | Create group `{name, members: [student IDs], ttl_seconds?}` |
+| POST | `/api/chats/<id>/members` | Add member (admin only) `{student_id}` |
 | DELETE | `/api/chats/<id>/members/<username>` | Remove member (admin) or leave (self) |
 | GET | `/api/chats/<id>/messages` | List live messages |
 | POST | `/api/chats/<id>/messages` | Send a message `{body}` |
 | POST | `/api/messages/<id>/save` | Save a private copy |
 | GET | `/api/saved` | List my saved messages |
 | DELETE | `/api/saved/<id>` | Delete a saved message |
+
+### Student IDs and the roster
+
+- Chats and messages show usernames only; a student ID is only used to add someone.
+- IDs are stored upper-case and matched case-insensitively. The allowed format is set by `STUDENT_ID_PATTERN` in `.env`.
+- To stop people registering with someone else's ID, load the university's list and turn the check on:
+
+```bash
+# students.csv has the columns: student_id,full_name
+flask --app run import-roster students.csv
+# then set REQUIRE_ROSTER=true in .env
+```
+
+- With the roster on, the official name from the list is used as the display name.
+- Development only: `flask --app run reset-db` drops and recreates all tables.
 
 ### Real-time (Socket.IO)
 
@@ -67,7 +84,7 @@ Connect with `auth: {token: "<jwt>"}`. You are joined to all your chat rooms aut
 app/
   __init__.py    app factory, scheduler, CLI command
   config.py      settings (env driven)
-  models.py      User, Conversation, Member, Message, SavedMessage
+  models.py      User, AllowedStudent, Conversation, Member, Message, SavedMessage
   auth.py        register / login
   chats.py       chats, groups, messages, saved messages
   sockets.py     real-time events

@@ -1,5 +1,7 @@
+import csv
 import os
 
+import click
 from dotenv import load_dotenv
 from flask import Flask, jsonify
 
@@ -15,6 +17,8 @@ def create_app(config_object=Config):
     # Import sockets first so its event handlers are registered before init_app.
     from . import auth, chats, sockets  # noqa: F401
     from .cleanup import delete_expired_messages, start_scheduler
+    from .models import AllowedStudent
+    from .services import normalize_id
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -32,6 +36,33 @@ def create_app(config_object=Config):
     def cleanup_command():
         """Delete expired messages now."""
         print(f"Deleted {delete_expired_messages()} expired messages")
+
+    @app.cli.command("import-roster")
+    @click.argument("csv_path")
+    def import_roster(csv_path):
+        """Load valid student IDs from a CSV with columns student_id,full_name."""
+        count = 0
+        with open(csv_path, newline="", encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f):
+                student_id = normalize_id(row.get("student_id"))
+                if not student_id:
+                    continue
+                student = db.session.get(AllowedStudent, student_id)
+                if student is None:
+                    student = AllowedStudent(student_id=student_id)
+                    db.session.add(student)
+                student.full_name = (row.get("full_name") or "").strip()
+                count += 1
+        db.session.commit()
+        print(f"Imported {count} students into the roster")
+
+    @app.cli.command("reset-db")
+    def reset_db():
+        """DANGER: drop and recreate every table (development only)."""
+        if click.confirm("This deletes ALL data. Continue?"):
+            db.drop_all()
+            db.create_all()
+            print("Database reset")
 
     with app.app_context():
         db.create_all()  # fine for an MVP; switch to `flask db migrate` later

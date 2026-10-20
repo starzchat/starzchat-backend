@@ -25,7 +25,8 @@ def client(app):
 
 def register(client, username):
     res = client.post(
-        "/api/auth/register", json={"username": username, "password": "password123"}
+        "/api/auth/register",
+        json={"student_id": username, "username": username, "password": "password123"},
     )
     assert res.status_code == 201
     return {"Authorization": f"Bearer {res.get_json()['token']}"}
@@ -33,12 +34,18 @@ def register(client, username):
 
 def test_register_login_and_duplicates(client):
     register(client, "alice")
-    dup = client.post(
-        "/api/auth/register", json={"username": "Alice", "password": "password123"}
+    same_id = client.post(
+        "/api/auth/register",
+        json={"student_id": "Alice", "username": "other", "password": "password123"},
     )
-    assert dup.status_code == 409
+    assert same_id.status_code == 409  # that student ID already has an account
+    same_name = client.post(
+        "/api/auth/register",
+        json={"student_id": "S4321", "username": "ALICE", "password": "password123"},
+    )
+    assert same_name.status_code == 409  # username already taken
     ok = client.post(
-        "/api/auth/login", json={"username": "alice", "password": "password123"}
+        "/api/auth/login", json={"username": "Alice", "password": "password123"}
     )
     assert ok.status_code == 200
     bad = client.post("/api/auth/login", json={"username": "alice", "password": "x"})
@@ -47,10 +54,10 @@ def test_register_login_and_duplicates(client):
 
 def test_direct_message_flow(client):
     alice, bob = register(client, "alice"), register(client, "bob")
-    chat = client.post("/api/chats/direct", json={"username": "bob"}, headers=alice)
+    chat = client.post("/api/chats/direct", json={"student_id": "bob"}, headers=alice)
     chat_id = chat.get_json()["id"]
 
-    again = client.post("/api/chats/direct", json={"username": "alice"}, headers=bob)
+    again = client.post("/api/chats/direct", json={"student_id": "alice"}, headers=bob)
     assert again.get_json()["id"] == chat_id  # same 1:1 chat reused
 
     sent = client.post(
@@ -66,7 +73,7 @@ def test_outsider_cannot_read_or_send(client):
     register(client, "bob")
     eve = register(client, "eve")
     chat_id = client.post(
-        "/api/chats/direct", json={"username": "bob"}, headers=alice
+        "/api/chats/direct", json={"student_id": "bob"}, headers=alice
     ).get_json()["id"]
     assert client.get(f"/api/chats/{chat_id}/messages", headers=eve).status_code == 404
     assert (
@@ -89,11 +96,11 @@ def test_group_admin_rules(client):
 
     # Bob is not an admin, so he can't add people.
     denied = client.post(
-        f"/api/chats/{gid}/members", json={"username": "carol"}, headers=bob
+        f"/api/chats/{gid}/members", json={"student_id": "carol"}, headers=bob
     )
     assert denied.status_code == 403
     added = client.post(
-        f"/api/chats/{gid}/members", json={"username": "carol"}, headers=alice
+        f"/api/chats/{gid}/members", json={"student_id": "carol"}, headers=alice
     )
     assert added.status_code == 201
     # Members can leave on their own.
@@ -103,7 +110,7 @@ def test_group_admin_rules(client):
 def test_expiry_cleanup_and_save(app, client):
     alice, bob = register(client, "alice"), register(client, "bob")
     chat_id = client.post(
-        "/api/chats/direct", json={"username": "bob"}, headers=alice
+        "/api/chats/direct", json={"student_id": "bob"}, headers=alice
     ).get_json()["id"]
     keep = client.post(
         f"/api/chats/{chat_id}/messages", json={"body": "keep me"}, headers=alice
@@ -133,7 +140,7 @@ def test_empty_message_rejected(client):
     alice = register(client, "alice")
     register(client, "bob")
     chat_id = client.post(
-        "/api/chats/direct", json={"username": "bob"}, headers=alice
+        "/api/chats/direct", json={"student_id": "bob"}, headers=alice
     ).get_json()["id"]
     res = client.post(
         f"/api/chats/{chat_id}/messages", json={"body": "   "}, headers=alice
@@ -147,7 +154,7 @@ def test_socket_delivers_messages_to_members_only(app, client):
     alice_h, bob_h = register(client, "alice"), register(client, "bob")
     register(client, "eve")
     chat_id = client.post(
-        "/api/chats/direct", json={"username": "bob"}, headers=alice_h
+        "/api/chats/direct", json={"student_id": "bob"}, headers=alice_h
     ).get_json()["id"]
 
     def token(headers):
@@ -171,3 +178,58 @@ def test_socket_delivers_messages_to_members_only(app, client):
 
     eve.emit("send_message", {"conversation_id": chat_id, "body": "intrude"})
     assert eve.get_received()[0]["name"] == "error"
+
+
+def test_invalid_student_id_rejected(client):
+    res = client.post(
+        "/api/auth/register",
+        json={"student_id": "no spaces!", "password": "password123"},
+    )
+    assert res.status_code == 400
+
+
+def test_roster_blocks_unknown_ids(app, client):
+    from app.models import AllowedStudent
+
+    app.config["REQUIRE_ROSTER"] = True
+    with app.app_context():
+        db.session.add(AllowedStudent(student_id="S1001", full_name="Ada Lovelace"))
+        db.session.commit()
+
+    unknown = client.post(
+        "/api/auth/register",
+        json={"student_id": "S9999", "username": "ghost", "password": "password123"},
+    )
+    assert unknown.status_code == 403
+
+    ok = client.post(
+        "/api/auth/register",
+        json={"student_id": "s1001", "username": "ada", "password": "password123"},
+    )
+    assert ok.status_code == 201
+    headers = {"Authorization": f"Bearer {ok.get_json()['token']}"}
+    me = client.get("/api/me", headers=headers).get_json()
+    assert me["student_id"] == "S1001"
+    assert me["username"] == "ada"
+    assert me["display_name"] == "Ada Lovelace"
+
+
+def test_add_chat_by_student_id_is_case_insensitive(client):
+    alice = register(client, "S1001")
+    register(client, "S1002")
+    res = client.post("/api/chats/direct", json={"student_id": "s1002"}, headers=alice)
+    assert res.status_code == 201
+    assert res.get_json()["name"] == "S1002"
+    unknown = client.post(
+        "/api/chats/direct", json={"student_id": "S7777"}, headers=alice
+    )
+    assert unknown.status_code == 404
+
+
+def test_username_is_required_and_validated(client):
+    for payload in (
+        {"student_id": "S1001", "password": "password123"},
+        {"student_id": "S1001", "username": "a b", "password": "password123"},
+        {"student_id": "S1001", "username": "ab", "password": "password123"},
+    ):
+        assert client.post("/api/auth/register", json=payload).status_code == 400

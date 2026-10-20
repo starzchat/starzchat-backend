@@ -3,7 +3,13 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from .extensions import db, socketio
 from .models import Conversation, Member, Message, SavedMessage, User, utcnow
-from .services import ChatError, create_message, get_membership, require_member
+from .services import (
+    ChatError,
+    create_message,
+    get_membership,
+    normalize_id,
+    require_member,
+)
 
 bp = Blueprint("chats", __name__, url_prefix="/api")
 
@@ -17,12 +23,19 @@ def current_user_id():
     return int(get_jwt_identity())
 
 
-def find_user(username):
+def find_user(student_id):
+    user = User.query.filter_by(student_id=normalize_id(student_id)).first()
+    if user is None:
+        raise ChatError(f"No student found with ID '{student_id}'", 404)
+    return user
+
+
+def find_user_by_username(username):
     user = User.query.filter(
-        db.func.lower(User.username) == (username or "").lower()
+        db.func.lower(User.username) == (username or "").strip().lower()
     ).first()
     if user is None:
-        raise ChatError(f"User '{username}' not found", 404)
+        raise ChatError(f"No student found with username '{username}'", 404)
     return user
 
 
@@ -39,8 +52,12 @@ def join_user_to_room(user_id, conversation_id):
     """Best effort: nothing to do unless the user is connected over a socket."""
     from .sockets import connected_users
 
-    for sid in connected_users.get(user_id, set()):
-        socketio.server.enter_room(sid, f"chat:{conversation_id}", namespace="/")
+    for sid in list(connected_users.get(user_id, set())):
+        try:
+            socketio.server.enter_room(sid, f"chat:{conversation_id}", namespace="/")
+        except (KeyError, ValueError):
+            # That socket already disconnected; drop it and carry on.
+            connected_users[user_id].discard(sid)
 
 
 @bp.get("/chats")
@@ -60,7 +77,7 @@ def list_chats():
 @jwt_required()
 def start_direct():
     uid = current_user_id()
-    other = find_user((request.get_json(silent=True) or {}).get("username"))
+    other = find_user((request.get_json(silent=True) or {}).get("student_id"))
     if other.id == uid:
         raise ChatError("You can't start a chat with yourself")
 
@@ -96,10 +113,9 @@ def create_group():
     if not name or len(name) > 80:
         raise ChatError("Group name is required (max 80 characters)")
 
-    usernames = data.get("members") or []
     member_ids = {uid}
-    for username in usernames:
-        member_ids.add(find_user(username).id)
+    for student_id in data.get("members") or []:
+        member_ids.add(find_user(student_id).id)
 
     conv = Conversation(
         kind="group", name=name, created_by=uid, ttl_seconds=data.get("ttl_seconds")
@@ -126,7 +142,7 @@ def add_member(chat_id):
     if me.role != "admin":
         raise ChatError("Only admins can add members", 403)
 
-    user = find_user((request.get_json(silent=True) or {}).get("username"))
+    user = find_user((request.get_json(silent=True) or {}).get("student_id"))
     if get_membership(chat_id, user.id):
         raise ChatError("Already a member", 409)
     db.session.add(Member(conversation_id=chat_id, user_id=user.id))
@@ -144,7 +160,7 @@ def remove_member(chat_id, username):
     if conv.kind != "group":
         raise ChatError("Only group chats support removing members")
 
-    target = find_user(username)
+    target = find_user_by_username(username)
     if target.id != uid and me.role != "admin":
         raise ChatError("Only admins can remove other members", 403)
     membership = get_membership(chat_id, target.id)

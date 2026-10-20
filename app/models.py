@@ -12,7 +12,9 @@ def utcnow():
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.String(20), unique=True, nullable=False, index=True)
     username = db.Column(db.String(32), unique=True, nullable=False, index=True)
+    display_name = db.Column(db.String(80))
     password_hash = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
 
@@ -21,6 +23,13 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+
+class AllowedStudent(db.Model):
+    """Optional roster of valid student IDs, imported from the university's list."""
+
+    student_id = db.Column(db.String(20), primary_key=True)
+    full_name = db.Column(db.String(80))
 
 
 class Conversation(db.Model):

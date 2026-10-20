@@ -15,8 +15,15 @@ class Config:
     MAX_MESSAGE_LENGTH = 2000
     RUN_SCHEDULER = True
 
+    # Student IDs are upper-cased before this pattern is checked. Adjust to
+    # match Starz University's real ID format.
+    STUDENT_ID_PATTERN = os.getenv("STUDENT_ID_PATTERN", r"^[A-Z0-9-]{3,20}$")
+    # When true, only IDs imported with `flask import-roster` can register.
+    REQUIRE_ROSTER = os.getenv("REQUIRE_ROSTER", "false").lower() == "true"
+
 
 class TestConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     RUN_SCHEDULER = False
+    REQUIRE_ROSTER = False
