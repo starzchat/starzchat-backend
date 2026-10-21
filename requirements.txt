@@ -3,6 +3,7 @@ Flask-SQLAlchemy>=3.1
 Flask-Migrate>=4.0
 Flask-SocketIO>=5.3
 Flask-JWT-Extended>=4.6
+Flask-Cors>=6.0
 simple-websocket>=1.0
 APScheduler>=3.10
 python-dotenv>=1.0

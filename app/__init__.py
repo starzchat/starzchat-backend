@@ -2,20 +2,18 @@ import csv
 import os
 
 import click
-from dotenv import load_dotenv
 from flask import Flask, jsonify
 
 from .config import Config
-from .extensions import db, jwt, migrate, socketio
+from .extensions import cors, db, jwt, migrate, socketio
 
 
 def create_app(config_object=Config):
-    load_dotenv()
     app = Flask(__name__)
     app.config.from_object(config_object)
 
     # Import sockets first so its event handlers are registered before init_app.
-    from . import auth, chats, sockets  # noqa: F401
+    from . import api_docs, auth, chats, sockets  # noqa: F401
     from .cleanup import delete_expired_messages, start_scheduler
     from .models import AllowedStudent
     from .services import normalize_id
@@ -23,10 +21,29 @@ def create_app(config_object=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    socketio.init_app(app)
+    cors.init_app(app, resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}})
+    socketio.init_app(
+        app, cors_allowed_origins=app.config["SOCKETIO_CORS_ORIGINS"]
+    )
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(chats.bp)
+    app.register_blueprint(api_docs.bp)
+
+    @app.get("/")
+    def index():
+        """Serve the bundled demo UI, if enabled.
+
+        The frontend is optional: the API under /api works regardless, so the
+        UI can live in its own app and point at this server.
+        """
+        if not app.config["SERVE_FRONTEND"]:
+            return jsonify(
+                name="StarzChat API",
+                status="ok",
+                docs="/api/docs",
+            )
+        return app.send_static_file("index.html")
 
     @app.get("/health")
     def health():

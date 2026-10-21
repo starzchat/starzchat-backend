@@ -1,5 +1,9 @@
 # StarzChat Backend
 
+> **Building the web client?** Read **[FRONTEND_HANDOFF.md](FRONTEND_HANDOFF.md)** first —
+> it has the full API contract, Socket.IO events, and the list of things this backend
+> does *not* do. This repo is backend-only; the frontend lives in its own app.
+
 A text-only chat app built with Python and Flask. Users can send direct messages and create group chats. Messages delete themselves after a set time to keep backend costs low, unless a user saves them.
 
 ## Features

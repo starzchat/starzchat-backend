@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StarzChat</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+
+  <!-- AUTH VIEW -->
+  <div id="auth-view">
+    <h1>StarzChat</h1>
+    <p class="sub">Student self-deleting real-time messenger</p>
+    <div class="tabs">
+      <button id="tab-login" class="active" onclick="switchAuthTab('login')">Log In</button>
+      <button id="tab-register" onclick="switchAuthTab('register')">Register</button>
+    </div>
+    <div id="auth-error" class="error-msg"></div>
+
+    <form id="auth-form" onsubmit="handleAuth(event)">
+      <div class="field" id="field-student-id" style="display:none;">
+        <label>Student ID</label>
+        <input id="inp-student-id" placeholder="e.g. S1001" />
+      </div>
+      <div class="field">
+        <label>Username</label>
+        <input id="inp-username" placeholder="e.g. alice" required />
+      </div>
+      <div class="field" id="field-display-name" style="display:none;">
+        <label>Display Name (optional)</label>
+        <input id="inp-display-name" placeholder="e.g. Alice Johnson" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="inp-password" type="password" placeholder="At least 8 characters" required />
+      </div>
+      <button type="submit" style="width:100%; margin-top:6px;" id="auth-submit-btn">Log In</button>
+    </form>
+  </div>
+
+  <!-- APP VIEW -->
+  <div id="app-view">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="user-badge">
+            <strong id="me-username">-</strong>
+            <span id="status-dot" class="status-dot"></span>
+            <span id="me-student-id"></span>
+          </div>
+          <button class="secondary" onclick="logout()">Log out</button>
+        </div>
+
+        <div class="sidebar-actions">
+          <div class="action-row">
+            <input id="direct-student-id" placeholder="Start 1:1 by Student ID..." />
+            <button onclick="startDirectChat()">Chat</button>
+          </div>
+          <div class="action-row">
+            <input id="group-name" placeholder="Group name..." />
+            <input id="group-members" placeholder="IDs (S101,S102)" />
+            <button onclick="createGroupChat()">+ Group</button>
+          </div>
+        </div>
+
+        <div class="nav-tabs">
+          <button id="nav-chats" class="active" onclick="switchPanel('chats')">Chats</button>
+          <button id="nav-saved" onclick="switchPanel('saved')">Saved Messages</button>
+        </div>
+
+        <div id="sidebar-list" class="chat-list"></div>
+      </aside>
+
+      <main class="main-area">
+        <div class="chat-header" id="chat-header" style="display:none;">
+          <div>
+            <strong id="active-chat-title"></strong>
+            <div id="active-chat-members" style="font-size:0.78rem; color:var(--muted);"></div>
+          </div>
+          <div id="group-controls" style="display:none; gap:6px; align-items:center;">
+            <input id="add-member-id" placeholder="Add Student ID" style="width:140px;" />
+            <button class="secondary" onclick="addGroupMember()">Add</button>
+            <button class="danger" onclick="leaveGroup()">Leave</button>
+          </div>
+        </div>
+
+        <div id="messages-area" class="messages">
+          <div class="empty-state">Select or start a chat on the left</div>
+        </div>
+
+        <form id="composer" class="composer" style="display:none;" onsubmit="sendMessage(event)">
+          <input id="msg-input" placeholder="Write a message (auto-deletes after expiry)..." autocomplete="off" />
+          <button type="submit">Send</button>
+        </form>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

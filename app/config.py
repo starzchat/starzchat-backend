@@ -1,6 +1,10 @@
 import os
 from datetime import timedelta
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
@@ -14,6 +18,18 @@ class Config:
     CLEANUP_INTERVAL = int(os.getenv("CLEANUP_INTERVAL", "60"))
     MAX_MESSAGE_LENGTH = 2000
     RUN_SCHEDULER = True
+
+    # --- Frontend integration -------------------------------------------
+    # Origins allowed to call the API from a browser. Use "*" in development;
+    # list your real frontend URLs (comma separated) in production.
+    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
+    # Socket.IO client origins (comma separated, or "*" for any).
+    SOCKETIO_CORS_ORIGINS = os.getenv("SOCKETIO_CORS_ORIGINS", "*")
+    # Serve the bundled demo UI in app/static. Set to false when the frontend
+    # is a separate app; the API keeps working either way.
+    SERVE_FRONTEND = os.getenv("SERVE_FRONTEND", "true").lower() == "true"
+    # Public base URL of this API, used by the frontend and reported by /api/docs.
+    API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:5000")
 
     # Student IDs are upper-cased before this pattern is checked. Adjust to
     # match Starz University's real ID format.
