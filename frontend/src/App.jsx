@@ -24,15 +24,15 @@ export default function App() {
   }, [removeExpired]);
 
   let content;
-  if (booting) content = <div className="grid h-full place-items-center text-[#8696a0]">Loading…</div>;
+  if (booting) content = <div className="grid h-full place-items-center text-gray-500">Loading…</div>;
   else if (!me) content = <AuthScreen />;
   else
     content = (
       <div className="flex h-full">
-        <div className={`${activeId ? 'hidden md:flex' : 'flex'} w-full flex-col border-r border-[#222d34] md:w-96`}>
+        <div className={`${activeId ? 'hidden md:flex' : 'flex'} w-full flex-col border-r border-[#1a1a1a] md:w-96 bg-[#0a0a0a]`}>
           <ChatList />
         </div>
-        <div className="relative min-w-0 flex-1">
+        <div className="relative min-w-0 flex-1 bg-[#000000]">
           <AnimatePresence mode="wait">
             {activeId ? (
               <motion.div
@@ -46,7 +46,7 @@ export default function App() {
                 <ChatView />
               </motion.div>
             ) : (
-              <div className="hidden h-full place-items-center text-[#8696a0] md:grid">
+              <div className="hidden h-full place-items-center text-gray-500 md:grid">
                 Select a chat. Messages self-delete after their timer.
               </div>
             )}
@@ -56,7 +56,7 @@ export default function App() {
     );
 
   return (
-    <div className="h-full">
+    <div className="h-full bg-[#000000]">
       {content}
       <Toaster theme="dark" position="top-center" richColors />
     </div>

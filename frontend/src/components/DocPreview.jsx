@@ -4,8 +4,8 @@ import '@cyntler/react-doc-viewer/dist/index.css';
 
 export default function DocPreview({ att, onClose }) {
   return (
-    <div className="fixed inset-0 z-30 flex flex-col bg-[#0b141a]" role="dialog" aria-label={att.name}>
-      <header className="flex items-center gap-2 bg-[#202c33] p-3">
+    <div className="fixed inset-0 z-30 flex flex-col bg-[#000000]" role="dialog" aria-label={att.name}>
+      <header className="flex items-center gap-2 bg-[#0a0a0a] border-b border-[#1a1a1a] p-3">
         <button aria-label="Close preview" onClick={onClose}><X size={20} /></button>
         <span className="truncate">{att.name}</span>
       </header>

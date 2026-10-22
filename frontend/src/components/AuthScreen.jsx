@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useStore } from '../store.js';
 
-const input = 'w-full rounded-lg bg-[#202c33] px-3 py-2 outline-none focus:ring-2 focus:ring-[#00a884]';
+const YELLOW = '#FFD60A';
+const input = `w-full rounded-lg bg-[#1a1a1a] px-3 py-2 outline-none focus:ring-2 focus:ring-${YELLOW}`;
 
 export default function AuthScreen() {
   const authenticate = useStore((s) => s.authenticate);
@@ -30,12 +31,12 @@ export default function AuthScreen() {
 
   return (
     <div className="grid h-full place-items-center p-4">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-3 rounded-2xl bg-[#111b21] p-6">
-        <h1 className="text-2xl font-semibold text-[#00a884]">StarzChat</h1>
-        <div className="flex gap-2 text-sm" role="tablist">
+      <form onSubmit={submit} className="w-full max-w-sm space-y-3 rounded-2xl bg-[#0a0a0a] border border-[#2a2a2a] p-6 shadow-2xl">
+        <h1 className="text-2xl font-semibold text-white">StarzChat</h1>
+        <div className="flex gap-1 text-sm" role="tablist">
           {['login', 'register'].map((m) => (
             <button type="button" key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
-              className={`flex-1 rounded-lg py-1.5 capitalize ${mode === m ? 'bg-[#00a884] text-black' : 'bg-[#202c33]'}`}>
+              className={`flex-1 rounded-lg py-2 capitalize font-medium transition ${mode === m ? `bg-${YELLOW} text-black` : 'bg-[#1a1a1a] text-gray-400 hover:text-white'}`}>
               {m}
             </button>
           ))}
@@ -48,7 +49,7 @@ export default function AuthScreen() {
         )}
         <input className={input} placeholder="Username" autoComplete="username" value={f.username} onChange={set('username')} required />
         <input className={input} type="password" placeholder="Password (min 8)" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'register' ? 8 : undefined} value={f.password} onChange={set('password')} required />
-        <button disabled={busy} className="w-full rounded-lg bg-[#00a884] py-2 font-medium text-black disabled:opacity-50">
+        <button disabled={busy} className={`w-full rounded-lg bg-${YELLOW} py-2 font-medium text-black disabled:opacity-50`}>
           {busy ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
         </button>
       </form>

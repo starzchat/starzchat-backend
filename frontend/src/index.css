@@ -1,3 +1,4 @@
 @import 'tailwindcss';
 html, body, #root { height: 100%; }
-body { background: #0b141a; color: #e9edef; overscroll-behavior: none; }
+body { background: #000000; color: #e5e5e5; overscroll-behavior: none; }
+/* yellow = Telegram-style accent; black = base */
