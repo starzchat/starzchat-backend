@@ -16,8 +16,8 @@ from flask_jwt_extended import (
 )
 
 from .extensions import db, limiter
-from .models import AllowedStudent, Conversation, Member, Message, SavedMessage, User
-from .services import ChatError, normalize_id, parse_limit
+from .models import Conversation, Member, Message, SavedMessage, User
+from .services import ChatError, normalize_id
 
 bp = Blueprint("auth", __name__, url_prefix="/api")
 
@@ -56,13 +56,6 @@ def register():
         return jsonify(error="An account with this student ID already exists"), 409
     if find_by_username(username):
         return jsonify(error="Username already taken"), 409
-
-    if current_app.config["REQUIRE_ROSTER"]:
-        roster_entry = db.session.get(AllowedStudent, student_id)
-        if roster_entry is None:
-            return jsonify(error="This student ID is not on the university roster"), 403
-        # The official name from the roster wins over whatever was typed.
-        display_name = roster_entry.full_name or display_name
 
     user = User(
         student_id=student_id, username=username, display_name=display_name or None
@@ -251,68 +244,3 @@ def search_users():
             for u in users
         ]
     )
-
-
-@bp.get("/roster")
-@jwt_required()
-def list_roster():
-    """List the student IDs that are allowed to register.
-
-    Only useful when REQUIRE_ROSTER is on; the roster is otherwise only
-    read during registration.
-    """
-    limit = parse_limit(request.args.get("limit"), default=50, maximum=200)
-    offset = 0
-    if request.args.get("offset"):
-        try:
-            offset = max(int(request.args["offset"]), 0)
-        except (TypeError, ValueError):
-            raise ChatError("offset must be a number") from None
-
-    query = request.args.get("q")
-    rows = AllowedStudent.query
-    if query:
-        pattern = f"%{(query or '').strip().upper()}%"
-        rows = rows.filter(AllowedStudent.student_id.like(pattern))
-    rows = rows.order_by(AllowedStudent.student_id).offset(offset).limit(limit).all()
-
-    return jsonify(
-        [
-            {"student_id": r.student_id, "full_name": r.full_name}
-            for r in rows
-        ]
-    )
-
-
-@bp.post("/roster")
-@jwt_required()
-def add_to_roster():
-    """Add a student ID to the roster."""
-    data = request.get_json(silent=True) or {}
-    student_id = normalize_id(data.get("student_id"))
-    if not student_id:
-        raise ChatError("student_id is required")
-    if not re.match(current_app.config["STUDENT_ID_PATTERN"], student_id):
-        raise ChatError("Enter a valid student ID")
-
-    full_name = (data.get("full_name") or "").strip()[:80]
-    entry = db.session.get(AllowedStudent, student_id)
-    if entry is None:
-        entry = AllowedStudent(student_id=student_id)
-        db.session.add(entry)
-    entry.full_name = full_name or None
-    db.session.commit()
-    return jsonify(student_id=entry.student_id, full_name=entry.full_name), 201
-
-
-@bp.delete("/roster/<student_id>")
-@jwt_required()
-def remove_from_roster(student_id):
-    """Remove a student ID from the roster."""
-    student_id = normalize_id(student_id)
-    entry = db.session.get(AllowedStudent, student_id)
-    if entry is None:
-        raise ChatError("Student ID not on the roster", 404)
-    db.session.delete(entry)
-    db.session.commit()
-    return jsonify(ok=True)

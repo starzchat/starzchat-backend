@@ -9,7 +9,7 @@ A text-only chat app built with Python and Flask. Users can send direct messages
 ## Features
 
 - Students sign up with their **student ID**, a **username** they choose and their own password; they log in with username + password (JWT)
-- Optional roster check, so only IDs on the university's list can register
+- Registration is open: any student ID that matches the expected format can sign up
 - Add another student by their ID to start chatting; create groups by listing student IDs
 - One-to-one chats and group chats (admin and member roles)
 - Real-time delivery with Flask-SocketIO, including typing indicators and read receipts
@@ -72,9 +72,6 @@ All routes except register/login need the header `Authorization: Bearer <token>`
 | POST | `/api/messages/<id>/save` | Save a private copy |
 | GET | `/api/saved` | List my saved messages |
 | DELETE | `/api/saved/<id>` | Delete a saved message |
-| GET | `/api/roster` | List the allowed student IDs (roster mode) |
-| POST | `/api/roster` | Add a student ID to the roster |
-| DELETE | `/api/roster/<student_id>` | Remove a student ID from the roster |
 
 ### Rate limits
 
@@ -82,19 +79,12 @@ Requests are limited per client IP and answered with `429` when the limit is
 hit. The defaults are in `.env` (`RATE_LIMIT_LOGIN`, `RATE_LIMIT_REGISTER`,
 `RATE_LIMIT_SEND`, `RATE_LIMIT_DEFAULT`).
 
-### Student IDs and the roster
+### Student IDs
 
 - Chats and messages show usernames only; a student ID is only used to add someone.
 - IDs are stored upper-case and matched case-insensitively. The allowed format is set by `STUDENT_ID_PATTERN` in `.env`.
-- To stop people registering with someone else's ID, load the university's list and turn the check on:
-
-```bash
-# students.csv has the columns: student_id,full_name
-flask --app run import-roster students.csv
-# then set REQUIRE_ROSTER=true in .env
-```
-
-- With the roster on, the official name from the list is used as the display name.
+- Registration is open to anyone: there is no roster, so any ID matching the
+  pattern can sign up. The display name is whatever the user typed.
 - Development only: `flask --app run reset-db` drops and recreates all tables.
 
 ### Real-time (Socket.IO)
@@ -133,7 +123,7 @@ never adds a column to an existing table — only Alembic does that.
 app/
   __init__.py    app factory, blueprints, CLI command
   config.py      settings (env driven)
-  models.py      User, AllowedStudent, Conversation, Member, Message, SavedMessage
+  models.py      User, Conversation, Member, Message, SavedMessage
   auth.py        register / login
   chats.py       chats, groups, messages, saved messages
   sockets.py     real-time events

@@ -28,13 +28,6 @@ class User(db.Model):
         return check_password_hash(self.password_hash, password)
 
 
-class AllowedStudent(db.Model):
-    """Optional roster of valid student IDs, imported from the university's list."""
-
-    student_id = db.Column(db.String(20), primary_key=True)
-    full_name = db.Column(db.String(80))
-
-
 class Conversation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     kind = db.Column(db.String(10), nullable=False)  # "direct" or "group"

@@ -29,7 +29,7 @@ Saving makes a **per-user copy**; the original still expires for everyone else.
 Feature checklist:
 
 - Register with **student ID** + a **username you choose** + password; log in with username + password
-- Optional **roster gate**: only student IDs on the university's CSV may register
+- **Registration is open** to anyone with a valid-looking student ID (no roster)
 - Start a **1:1 chat** by entering someone's student ID; create **group chats** by listing student IDs
 - Groups have **admin** and **member** roles
 - **Real-time** delivery over Socket.IO
@@ -44,7 +44,7 @@ Feature checklist:
 app/
   __init__.py    app factory, blueprints, CLI commands
   config.py      settings (env driven)
-  models.py      User, AllowedStudent, Conversation, Member, Message, SavedMessage
+  models.py      User, Conversation, Member, Message, SavedMessage
   auth.py        register / login / me
   chats.py       chats, groups, members, messages, saved messages
   sockets.py     real-time events
@@ -168,8 +168,8 @@ Always the same shape — read `error`:
 { "error": "Only admins can add members" }
 ```
 
-Common statuses: `400` validation, `401` bad credentials, `403` not admin / not on
-roster, `404` not found **or not a member**, `409` duplicate (student ID or username taken).
+Common statuses: `400` validation, `401` bad credentials, `403` not admin,
+`404` not found **or not a member**, `409` duplicate (student ID or username taken).
 
 > **Important:** the backend returns **`404`, not `403`, when you are not a member of a
 > conversation** — it deliberately does not reveal that the chat exists. Don't render
@@ -276,10 +276,9 @@ Minimum viable feature set, in suggested order:
 - **If the last admin leaves, the backend promotes another member automatically** —
   groups never become admin-less.
 - **Direct chats have no member management.** Only groups support add/remove.
-- **Roster mode is optional.** When `REQUIRE_ROSTER=true`, registration for an
-  unlisted ID returns `403`, and the **official name from the roster CSV overrides**
-  whatever `display_name` the user typed. The client should display `display_name` when
-  present and fall back to `username`.
+- **Registration is open.** Any student ID matching the server's pattern can sign
+  up; there is no roster. The `display_name` is whatever the user typed, so the
+  client should display it when present and fall back to `username`.
 - **Saved messages are private.** `GET /api/saved` returns only the caller's own copies.
 - **Saved copies outlive the original** but can be deleted by their owner.
 - **The API shape is stable.** Existing fields will not be renamed or removed

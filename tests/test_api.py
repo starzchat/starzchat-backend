@@ -238,30 +238,38 @@ def test_invalid_student_id_rejected(client):
     assert res.status_code == 400
 
 
-def test_roster_blocks_unknown_ids(app, client):
-    from app.models import AllowedStudent
+def test_registration_is_open_to_anyone(client):
+    """Anyone with a valid-looking student ID can register.
 
-    app.config["REQUIRE_ROSTER"] = True
-    with app.app_context():
-        db.session.add(AllowedStudent(student_id="S1001", full_name="Ada Lovelace"))
-        db.session.commit()
-
-    unknown = client.post(
+    There is no roster gate: the app is open, so any ID that matches the
+    pattern is accepted.
+    """
+    res = client.post(
         "/api/auth/register",
-        json={"student_id": "S9999", "username": "ghost", "password": "password123"},
+        json={"student_id": "11387", "username": "ada", "password": "password123"},
     )
-    assert unknown.status_code == 403
-
-    ok = client.post(
-        "/api/auth/register",
-        json={"student_id": "s1001", "username": "ada", "password": "password123"},
-    )
-    assert ok.status_code == 201
-    headers = {"Authorization": f"Bearer {ok.get_json()['token']}"}
+    assert res.status_code == 201
+    headers = {"Authorization": f"Bearer {res.get_json()['token']}"}
     me = client.get("/api/me", headers=headers).get_json()
-    assert me["student_id"] == "S1001"
+    assert me["student_id"] == "11387"
     assert me["username"] == "ada"
-    assert me["display_name"] == "Ada Lovelace"
+
+    # The display name is whatever the user typed, not an official one.
+    named = client.post(
+        "/api/auth/register",
+        json={
+            "student_id": "11388",
+            "username": "bob",
+            "password": "password123",
+            "display_name": "Bob B",
+        },
+    )
+    assert named.status_code == 201
+    named_headers = {"Authorization": f"Bearer {named.get_json()['token']}"}
+    assert (
+        client.get("/api/me", headers=named_headers).get_json()["display_name"]
+        == "Bob B"
+    )
 
 
 def test_add_chat_by_student_id_is_case_insensitive(client):
@@ -675,22 +683,4 @@ def test_delete_account_leaves_the_group_with_an_admin(client):
     # Bob is still in the group and is now its admin.
     chats = client.get("/api/chats", headers=bob).get_json()
     assert [c["id"] for c in chats] == [gid]
-
-
-def test_roster_can_be_managed_through_the_api(client):
-    headers = register(client, "alice")
-
-    added = client.post(
-        "/api/roster", json={"student_id": "s1001", "full_name": "Ada Lovelace"},
-        headers=headers,
-    )
-    assert added.status_code == 201
-    assert added.get_json()["student_id"] == "S1001"
-
-    listed = client.get("/api/roster", headers=headers).get_json()
-    assert listed == [{"student_id": "S1001", "full_name": "Ada Lovelace"}]
-
-    assert client.delete("/api/roster/S1001", headers=headers).status_code == 200
-    assert client.get("/api/roster", headers=headers).get_json() == []
-    assert client.delete("/api/roster/S1001", headers=headers).status_code == 404
 
