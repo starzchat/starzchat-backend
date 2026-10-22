@@ -19,6 +19,24 @@ class Config:
     MAX_MESSAGE_LENGTH = 2000
     RUN_SCHEDULER = True
 
+    # --- Rate limiting -----------------------------------------------------
+    # Requests per window, per client IP. The limits are deliberately strict
+    # on login (brute force) and looser on sending (a chatty user is normal).
+    RATE_LIMIT_LOGIN = os.getenv("RATE_LIMIT_LOGIN", "10/minute")
+    RATE_LIMIT_REGISTER = os.getenv("RATE_LIMIT_REGISTER", "5/hour")
+    RATE_LIMIT_SEND = os.getenv("RATE_LIMIT_SEND", "30/minute")
+    RATE_LIMIT_DEFAULT = os.getenv("RATE_LIMIT_DEFAULT", "120/minute")
+    # Where the counters live. Use Redis in a multi-worker deployment so the
+    # limits are shared instead of per-process.
+    RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
+    RATELIMIT_ENABLED = os.getenv("RATELIMIT_ENABLED", "true").lower() == "true"
+
+    # --- Schema management ------------------------------------------------
+    # When true the app creates any missing tables on startup (development
+    # convenience). When false the schema is owned by Alembic migrations, so
+    # set this to false in production and run `flask db upgrade` instead.
+    AUTO_CREATE_SCHEMA = os.getenv("AUTO_CREATE_SCHEMA", "true").lower() == "true"
+
     # --- Frontend integration -------------------------------------------
     # Origins allowed to call the API from a browser. Use "*" in development;
     # list your real frontend URLs (comma separated) in production.
@@ -43,3 +61,5 @@ class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     RUN_SCHEDULER = False
     REQUIRE_ROSTER = False
+    # Tests build their schema directly, so they never need the migrations.
+    AUTO_CREATE_SCHEMA = True

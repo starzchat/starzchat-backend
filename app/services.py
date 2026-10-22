@@ -1,7 +1,7 @@
 from flask import current_app
 
 from .extensions import db
-from .models import Conversation, Member, Message, message_expiry
+from .models import Conversation, Member, Message, message_expiry, utcnow
 
 
 def normalize_id(value):
@@ -30,6 +30,34 @@ def require_member(conversation_id, user_id):
     return member
 
 
+def parse_limit(raw, default=50, maximum=100):
+    """Read a `limit` query parameter, clamped to a sane range."""
+    if raw is None or raw == "":
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise ChatError("limit must be a number") from None
+    if value < 1:
+        raise ChatError("limit must be at least 1")
+    return min(value, maximum)
+
+
+def parse_ttl(raw):
+    """Validate a per-chat TTL in seconds. None means 'use the app default'."""
+    if raw is None:
+        return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise ChatError("ttl_seconds must be a number") from None
+    if value < 60:
+        raise ChatError("ttl_seconds must be at least 60")
+    if value > 30 * 24 * 3600:
+        raise ChatError("ttl_seconds must be at most 2592000 (30 days)")
+    return value
+
+
 def create_message(conversation_id, user_id, body):
     body = (body or "").strip()
     if not body:
@@ -48,5 +76,8 @@ def create_message(conversation_id, user_id, body):
         ),
     )
     db.session.add(message)
+    # Keep the conversation sortable by recency. `created_at` is only filled in
+    # at flush time, so the timestamp is set explicitly here.
+    conversation.last_message_at = utcnow()
     db.session.commit()
     return message

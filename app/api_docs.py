@@ -51,13 +51,41 @@ def docs():
             "header": "Authorization: Bearer <token>",
             "login": "POST /api/auth/login",
             "register": "POST /api/auth/register",
+            "logout": "POST /api/auth/logout",
+            "note": (
+                "Logging out or changing the password invalidates every token "
+                "already issued for that user."
+            ),
         },
         realtime={
             "transport": "socket.io",
             "path": "/socket.io",
             "auth": {"token": "<jwt>"},
-            "client_events": ["send_message"],
-            "server_events": ["new_message", "error"],
+            "client_events": [
+                "send_message",
+                "typing",
+                "read_receipt",
+                "presence",
+            ],
+            "server_events": [
+                "new_message",
+                "message_updated",
+                "message_deleted",
+                "typing",
+                "read_receipt",
+                "presence",
+                "error",
+            ],
+        },
+        pagination={
+            "messages": "GET /api/chats/<id>/messages?limit=&before=",
+            "chats": "GET /api/chats?limit=&offset=",
+        },
+        rate_limits={
+            "login": current_app.config.get("RATE_LIMIT_LOGIN"),
+            "register": current_app.config.get("RATE_LIMIT_REGISTER"),
+            "send": current_app.config.get("RATE_LIMIT_SEND"),
+            "default": current_app.config.get("RATE_LIMIT_DEFAULT"),
         },
         routes=routes,
     )

@@ -1,0 +1,5 @@
+[tool.ruff]
+line-length = 88
+# Alembic generates these files; they are boilerplate and are regenerated on
+# every `flask db migrate`, so they are not hand-maintained or linted.
+exclude = ["migrations"]

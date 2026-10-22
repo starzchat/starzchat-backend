@@ -17,6 +17,9 @@ class User(db.Model):
     display_name = db.Column(db.String(80))
     password_hash = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+    # Bumped to invalidate every JWT already issued for this user. Logging out
+    # or changing the password bumps it, so old tokens stop working at once.
+    token_version = db.Column(db.Integer, default=0, nullable=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -40,6 +43,9 @@ class Conversation(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
     # Per-chat expiry override in seconds. NULL means use the app default.
     ttl_seconds = db.Column(db.Integer)
+    # Timestamp of the most recent message, so chats can be sorted by recency.
+    # NULL means the chat has no messages yet.
+    last_message_at = db.Column(db.DateTime, index=True)
 
     members = db.relationship(
         "Member", backref="conversation", cascade="all, delete-orphan"
@@ -55,6 +61,8 @@ class Member(db.Model):
         db.Integer, db.ForeignKey("user.id"), nullable=False, index=True
     )
     role = db.Column(db.String(10), default="member", nullable=False)  # admin/member
+    # The highest message id this member has read. Used for the unread badge.
+    last_read_message_id = db.Column(db.Integer, default=0, nullable=False)
     user = db.relationship("User")
 
     __table_args__ = (
@@ -72,6 +80,8 @@ class Message(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
     # Indexed so the cleanup job's "expires_at < now" scan stays fast.
     expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    # Set when the sender edits the message; NULL means never edited.
+    edited_at = db.Column(db.DateTime)
 
     sender = db.relationship("User")
 
@@ -83,6 +93,7 @@ class Message(db.Model):
             "body": self.body,
             "created_at": self.created_at.isoformat() + "Z",
             "expires_at": self.expires_at.isoformat() + "Z",
+            "edited_at": self.edited_at.isoformat() + "Z" if self.edited_at else None,
         }
 
 

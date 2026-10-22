@@ -52,6 +52,7 @@ app/
   cleanup.py     expired-message deletion
   api_docs.py    GET /api/docs -> machine-readable route contract
   static/        demo client (vanilla JS, reference implementation). Replace freely.
+migrations/      Alembic migrations (database schema history)
 tests/           pytest suite (backend)
 run.py           dev server entrypoint
 ```
@@ -281,6 +282,13 @@ Minimum viable feature set, in suggested order:
   present and fall back to `username`.
 - **Saved messages are private.** `GET /api/saved` returns only the caller's own copies.
 - **Saved copies outlive the original** but can be deleted by their owner.
+- **The API shape is stable.** Existing fields will not be renamed or removed
+  without a version bump; new optional fields may be added, so **ignore unknown
+  fields** in responses rather than validating strictly against a fixed schema.
+- **The database schema is version-controlled** with Alembic (`migrations/`), and the
+  live Supabase database is stamped at the current revision. If the backend adds a
+  field, it arrives with a migration — you do not need to do anything on the
+  frontend side, and you should not expect the frontend to trigger schema changes.
 
 ---
 
@@ -291,14 +299,25 @@ backend yourself:
 
 | Gap | Impact on the frontend |
 | --- | --- |
-| **No pagination** on `GET /api/chats/<id>/messages` | Returns every live message at once. Fine for an MVP; will need `?before=&limit=` later. |
-| **No rate limiting** on login or send | Don't build aggressive retry logic on top of this. |
-| **No message edit/delete by sender** | The UI cannot offer those actions yet. |
-| **No read receipts / typing indicators** | Socket.IO supports emitting them, but the backend has no handlers for them today. |
-| **`ttl_seconds` is set only at group creation** | There is no endpoint to change a group's TTL afterwards. |
-| **No presence/online list** | The demo shows a socket connect dot for *yourself* only. |
 | **No push notifications / email** | Out of scope. |
 | **SQLite by default** | Fine locally. `psycopg` is already installed — production uses Postgres via `DATABASE_URL`. |
+| **Migrations are manual** | Schema changes are applied by the backend owner with `flask db upgrade`. You never need to run migrations. |
+| **Rate-limit counters are in-process** | The limits themselves are enforced per IP, but with several workers each has its own counter. Redis (`RATELIMIT_STORAGE_URI`) shares them. |
+
+### Gaps that have since been closed
+
+These were listed as gaps before and are now implemented:
+
+| Was | Now |
+| --- | --- |
+| No pagination on `GET /api/chats/<id>/messages` | `?limit=` and `?before=<message id>`; results are oldest-first within a page. `GET /api/chats` takes `?limit=&offset=`. |
+| No rate limiting on login or send | `429` after the limit in `.env` (`RATE_LIMIT_LOGIN`, `RATE_LIMIT_REGISTER`, `RATE_LIMIT_SEND`). |
+| No message edit/delete by sender | `PATCH` / `DELETE /api/messages/<id>`; only the sender may do this. |
+| No read receipts / typing indicators | Socket.IO `typing` and `read_receipt` events, plus `POST /api/chats/<id>/read` and an `unread_count` on each chat. |
+| `ttl_seconds` is set only at group creation | `PATCH /api/chats/<id>/ttl` (admin only). |
+| No presence/online list | Socket.IO `presence` event. |
+| No way to find a student ID | `GET /api/users/search?q=` returns usernames *and* student IDs. |
+| No logout / token revocation | `POST /api/auth/logout` and `POST /api/auth/password` invalidate every token for that user. |
 
 ---
 
