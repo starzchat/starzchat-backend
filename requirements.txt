@@ -11,3 +11,4 @@ python-dotenv>=1.0
 psycopg[binary]>=3.1
 pytest>=8.0
 ruff>=0.5
+eventlet
